@@ -1,0 +1,17 @@
+# Azure Microsoft Graph API Configuration
+# Copy this file to Download_EQD.yaml and fill in your credentials
+# DO NOT commit Download_EQD.yaml to git!
+
+connection:
+  # Get from Azure Portal: https://portal.azure.com
+  tenant_id: "YOUR_TENANT_ID_HERE"
+
+  # Application (client) ID from your Azure AD app registration
+  client_id: "YOUR_CLIENT_ID_HERE"
+
+  # Client secret generated in Azure AD app registration
+  # (Create certificate & secrets → New client secret)
+  client_secret: "YOUR_CLIENT_SECRET_HERE"
+
+  # Target email address to sync from (personal or shared mailbox)
+  email: "your.email@company.com"

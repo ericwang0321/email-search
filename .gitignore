@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Knowledge Base - Sensitive Data
+Bundled Resources/assets/knowledge_base/
+Bundled Resources/assetts/knowledge_base/
+
+# Sync State - Local runtime data
+Bundled Resources/assets/sync_state.json
+Bundled Resources/assetts/sync_state.json
+
+# Credentials - Do not commit!
+Bundled Resources/assets/Download_EQD.yaml
+Bundled Resources/assetts/Download_EQD.yaml
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
