@@ -2,111 +2,183 @@ import base64
 import json
 import os
 from datetime import datetime, timezone
-from pathlib import Path
+from typing import Optional
 
-# 请确保同目录下有 graph_client.py 并且包含了下面这些函数和变量
 from graph_client import build_client, _get, _GRAPH_BASE
+from config import (
+    SYNC_STATE_FILE,
+    RAW_DATA_DIR,
+    sanitize_filename,
+    DEFAULT_SYNC_START_DATE,
+    PAGE_SIZE,
+    MAX_ATTACHMENT_SIZE,
+    ensure_dirs_exist,
+)
 
-SYNC_STATE_FILE = "../assets/sync_state.json"
-RAW_DATA_DIR = "../assets/knowledge_base/raw_data"
 
 def load_last_sync_time() -> str:
-    """读取上次同步的时间。如果没有，则默认从 2026-01-01 开始"""
-    if os.path.exists(SYNC_STATE_FILE):
+    """读取上次同步的时间。如果没有，则从30天前开始"""
+    if not os.path.exists(SYNC_STATE_FILE):
+        return DEFAULT_SYNC_START_DATE
+
+    try:
         with open(SYNC_STATE_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            return data.get("last_sync_time", "2026-01-01T00:00:00Z")
-    return "2026-01-01T00:00:00Z"
+            return data.get("last_sync_time", DEFAULT_SYNC_START_DATE)
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"⚠️ 读取同步状态失败，使用默认值: {e}")
+        return DEFAULT_SYNC_START_DATE
+
 
 def save_sync_time(sync_time: str):
     """保存本次同步的时间，用于断点续传"""
-    with open(SYNC_STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump({"last_sync_time": sync_time}, f, indent=4)
+    try:
+        with open(SYNC_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump({"last_sync_time": sync_time}, f, indent=4)
+    except IOError as e:
+        print(f"❌ 保存同步状态失败: {e}")
+        raise
+
 
 def download_attachments(client, message_id: str, save_dir: str) -> list[str]:
-    """下载附件并保存"""
+    """
+    下载附件并保存
+    返回: 成功下载的文件路径列表
+    """
     url = f"{_GRAPH_BASE}/users/{client.email}/messages/{message_id}/attachments"
     data = _get(url, client.headers)
-    
+
     downloaded_files = []
     for att in data.get("value", []):
-        if att.get("@odata.type") == "#microsoft.graph.fileAttachment":
-            # 过滤掉文件名中可能导致路径错误的非法字符
-            file_name = att.get("name", "unknown_file").replace("/", "_").replace("\\", "_")
-            content_bytes = att.get("contentBytes")
-            
-            if content_bytes:
-                file_path = os.path.join(save_dir, file_name)
-                with open(file_path, "wb") as f:
-                    f.write(base64.b64decode(content_bytes))
-                downloaded_files.append(file_path)
+        if att.get("@odata.type") != "#microsoft.graph.fileAttachment":
+            continue
+
+        file_name = sanitize_filename(att.get("name", "unknown_file"))
+        content_bytes = att.get("contentBytes")
+
+        if not content_bytes:
+            print(f"     ⚠️ 附件 {file_name} 内容为空，跳过")
+            continue
+
+        # 检查文件大小
+        decoded_size = len(base64.b64decode(content_bytes))
+        if decoded_size > MAX_ATTACHMENT_SIZE:
+            print(f"     ⚠️ 附件 {file_name} 超过大小限制 ({decoded_size / 1024 / 1024:.2f}MB)，跳过")
+            continue
+
+        file_path = os.path.join(save_dir, file_name)
+        try:
+            with open(file_path, "wb") as f:
+                f.write(base64.b64decode(content_bytes))
+            downloaded_files.append(file_path)
+            print(f"     ✓ 已下载: {file_name}")
+        except (IOError, OSError) as e:
+            print(f"     ❌ 下载附件失败 {file_name}: {e}")
+
     return downloaded_files
 
-def run_incremental_sync():
+
+def get_email_dir_name(date_str: str, subject: str) -> str:
+    """
+    生成邮件存储目录名
+    格式: YYYY-MM-DD_subject
+    subject 会被清理并限制长度
+    """
+    date_prefix = date_str.split("T")[0]
+    safe_subject = sanitize_filename(subject, max_length=50)
+    return f"{date_prefix}_{safe_subject}"
+
+
+def run_incremental_sync() -> int:
+    """
+    运行增量同步
+    返回: 成功同步的邮件数量
+    """
     print("🔄 初始化增量同步引擎...")
+    ensure_dirs_exist()
+
     client = build_client()
     last_sync = load_last_sync_time()
     print(f"📅 上次同步时间: {last_sync}")
     print(f"📭 当前目标邮箱: {client.email}")
-    
+
     print("\n🔍 正在查找新邮件...")
-    
-    # 构造 filter 条件，严格查找大于上次同步时间的邮件
+
     filter_query = f"receivedDateTime gt {last_sync}"
-    
     url = f"{_GRAPH_BASE}/users/{client.email}/mailFolders/inbox/messages"
     params = {
         "$select": "id,subject,receivedDateTime,hasAttachments,body",
         "$filter": filter_query,
-        "$orderby": "receivedDateTime asc", # ⚠️ 必须按时间正序（从老到新），保证断点续传的逻辑正确
-        "$top": 50
+        "$orderby": "receivedDateTime asc",  # 按时间正序，保证断点续传逻辑正确
+        "$top": PAGE_SIZE,
     }
 
     new_emails_count = 0
-    
-    while url:
-        data = _get(url, client.headers, params)
-        messages = data.get("value", [])
-        
-        for msg in messages:
-            new_emails_count += 1
-            msg_id = msg.get("id")
-            subject = msg.get("subject", "无主题").replace("/", "_").replace("\\", "_")
-            date_str = msg.get("receivedDateTime")
-            
-            print(f"  📥 处理新邮件: [{date_str}] {subject[:40]}...")
-            
-            # 为每封邮件创建一个独立的文件夹存放正文和附件
-            date_prefix = date_str.split("T")[0]
-            # 限制文件夹名称长度，防止路径过长报错
-            safe_subject = subject[:30].strip()
-            email_dir = os.path.join(RAW_DATA_DIR, f"{date_prefix}_{safe_subject}")
-            os.makedirs(email_dir, exist_ok=True)
-            
-            # 1. 保存正文为 txt
-            body_content = msg.get("body", {}).get("content", "")
-            if body_content:
-                with open(os.path.join(email_dir, "body.txt"), "w", encoding="utf-8") as f:
-                    f.write(body_content)
-            
-            # 2. 下载附件 (加入容错机制)
-            if msg.get("hasAttachments"):
+    synced_times = []  # 批量记录成功处理的时间戳
+
+    try:
+        while url:
+            data = _get(url, client.headers, params)
+            messages = data.get("value", [])
+
+            for msg in messages:
+                msg_id = msg.get("id")
+                subject = msg.get("subject", "无主题")
+                date_str = msg.get("receivedDateTime")
+
+                if not date_str:
+                    print(f"  ⚠️ 邮件缺少时间戳，跳过")
+                    continue
+
+                print(f"  📥 处理新邮件: [{date_str}] {subject[:40]}...")
+
                 try:
-                    download_attachments(client, msg_id, email_dir)
-                    print(f"     📎 附件已落地至: {email_dir}")
-                except Exception as e:
-                    print(f"     ❌ 下载附件超时或失败 (将跳过此附件): {e}")
+                    # 生成目录名
+                    email_dir_name = get_email_dir_name(date_str, subject)
+                    email_dir = os.path.join(str(RAW_DATA_DIR), email_dir_name)
+                    os.makedirs(email_dir, exist_ok=True)
 
-            # 3. ⚠️ 核心修改：存档。每成功处理完一封邮件，立即将它的时间戳覆盖写入 JSON
-            save_sync_time(date_str)
+                    # 保存正文
+                    body_content = msg.get("body", {}).get("content", "")
+                    if body_content:
+                        body_path = os.path.join(email_dir, "body.txt")
+                        with open(body_path, "w", encoding="utf-8") as f:
+                            f.write(body_content)
 
-        url = data.get("@odata.nextLink")
-        params = None # 翻页时不需要再传 params
+                    # 下载附件
+                    if msg.get("hasAttachments"):
+                        download_attachments(client, msg_id, email_dir)
+
+                    # 记录成功的时间戳
+                    synced_times.append(date_str)
+                    new_emails_count += 1
+
+                except (IOError, OSError) as e:
+                    print(f"     ❌ 处理邮件失败: {e}")
+                    continue
+
+            url = data.get("@odata.nextLink")
+            params = None
+
+    except Exception as e:
+        print(f"\n❌ 同步过程中发生错误: {e}")
+        # 仍然保存已经成功的邮件时间戳
+        if synced_times:
+            print(f"💾 保存已同步的 {len(synced_times)} 封邮件的时间戳")
+            save_sync_time(synced_times[-1])
+        raise
+
+    # 批量保存最新的时间戳
+    if synced_times:
+        save_sync_time(synced_times[-1])
 
     if new_emails_count == 0:
         print("\n✅ 没有发现新邮件，知识库已是最新状态。")
     else:
         print(f"\n🎉 成功同步了 {new_emails_count} 封新邮件！")
+
+    return new_emails_count
+
 
 if __name__ == "__main__":
     run_incremental_sync()
