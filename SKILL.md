@@ -73,33 +73,36 @@
 
 ## 执行入口
 
-### 方式一：直接调用（推荐）
+### 方式一：直接调用（推荐，跨平台）
 ```bash
-cd "C:/Users/ChinaAMC(HK)/.claude/skills/email-search"
-.venv/Scripts/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3
+cd <skill_dir>
+.venv/Scripts/python run.py "搜索关键词" 3          # Windows
+.venv/bin/python run.py "搜索关键词" 3              # Mac/Linux
 ```
 
 ### 方式二：命令行参数
 ```bash
-.venv/Scripts/python "Bundled Resources/scripts/email_knowledge_tool.py" "宁德时代 业绩" 5
+.venv/Scripts/python run.py "宁德时代 业绩" 5        # Windows
+.venv/bin/python run.py "宁德时代 业绩" 5            # Mac/Linux
 ```
 
-### 方式三：控制同步时间范围（新增功能）
+### 方式三：控制同步时间范围
 ```bash
 # 同步过去7天的邮件
-.venv/Scripts/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3 7
+.venv/Scripts/python run.py "搜索关键词" 3 7        # Windows
+.venv/bin/python run.py "搜索关键词" 3 7            # Mac/Linux
 
 # 同步过去30天的邮件（默认）
-.venv/Scripts/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3 30
+.venv/Scripts/python run.py "搜索关键词" 3 30
 
 # 同步过去3个月的邮件
-.venv/Scripts/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3 90
+.venv/Scripts/python run.py "搜索关键词" 3 90
 
 # 同步过去1年的邮件
-.venv/Scripts/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3 365
+.venv/Scripts/python run.py "搜索关键词" 3 365
 
 # 增量同步模式（只拉取新邮件）
-.venv/Scripts/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3
+.venv/Scripts/python run.py "搜索关键词" 3
 ```
 
 **参数说明：**
@@ -133,10 +136,10 @@ cd "C:/Users/ChinaAMC(HK)/.claude/skills/email-search"
 **示例使用**:
 ```bash
 # 只查询最近30天的数据（不重新同步）
-python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索内容" 3 30
+python run.py "搜索内容" 3 30
 
 # 首次使用：同步过去3个月的数据
-python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索内容" 3 90
+python run.py "搜索内容" 3 90
 ```
 
 **注意事项**:
