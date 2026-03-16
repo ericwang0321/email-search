@@ -2,7 +2,7 @@ import json
 import os
 import pandas as pd
 import pymupdf
-import pypdf2  # 添加 pypdf2 作为备用 PDF 解析器
+import PyPDF2 as pypdf2  # 添加 pypdf2 作为备用 PDF 解析器
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from typing import Optional
 

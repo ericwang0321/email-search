@@ -1,7 +1,7 @@
 import base64
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from graph_client import build_client, _get, _GRAPH_BASE
@@ -109,23 +109,23 @@ def run_incremental_sync(sync_days: int = None) -> int:
 
     # 根据 sync_days 参数计算同步起始时间
     if sync_days is not None:
+        # 根据 sync_days 重新计算起始时间
+        start_date = (datetime.now(timezone.utc) - timedelta(days=sync_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        print(f"📅 同步范围: 过去 {sync_days} 天")
+        print(f"📅 起始时间: {start_date}")
+        print(f"📭 当前目标邮箱: {client.email}")
+        print(f"\n🔍 正在查找过去 {sync_days} 天的邮件...")
+        filter_query = f"receivedDateTime ge {start_date}"
+        # 更新 last_sync 为本次起始时间
+        save_sync_time(start_date)
+        last_sync = start_date
+    else:
         # 使用上次同步时间继续增量同步
         last_sync = load_last_sync_time()
         print(f"📅 上次同步时间: {last_sync}")
         print(f"📭 当前目标邮箱: {client.email}")
         print("\n🔍 正在查找新邮件（增量模式）...")
         filter_query = f"receivedDateTime gt {last_sync}"
-    else:
-        # 根据 sync_days 重新计算起始时间
-        start_date = (datetime.now(timezone.utc) - timedelta(days=sync_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        print(f"📅 同步范围: 过去 {sync_days} 天")
-        print(f"📅 起始时间: {start_date}")
-        print(f"📭 当前目标邮箱: {client.email}")
-        print(f"\n🔍 正在查找过去 {sync_days} 天的邮件（全量模式）...")
-        filter_query = f"receivedDateTime ge {start_date}"
-        # 更新 last_sync 为本次起始时间
-        save_sync_time(start_date)
-        last_sync = start_date
 
     url = f"{_GRAPH_BASE}/users/{client.email}/mailFolders/inbox/messages"
     params = {
