@@ -10,6 +10,7 @@ from config import (
     RAW_DATA_DIR,
     sanitize_filename,
     DEFAULT_SYNC_START_DATE,
+    DEFAULT_SYNC_DAYS,
     PAGE_SIZE,
     MAX_ATTACHMENT_SIZE,
     ensure_dirs_exist,
@@ -89,22 +90,43 @@ def get_email_dir_name(date_str: str, subject: str) -> str:
     return f"{date_prefix}_{safe_subject}"
 
 
-def run_incremental_sync() -> int:
+def run_incremental_sync(sync_days: int = None) -> int:
     """
     运行增量同步
     返回: 成功同步的邮件数量
+
+    参数:
+    - sync_days: 同步过去多少天的邮件。None 表示使用默认值（30天）
+      示例:
+        - sync_days=7    # 同步过去7天
+        - sync_days=30   # 同步过去30天（默认）
+        - sync_days=365  # 同步过去1年
     """
     print("🔄 初始化增量同步引擎...")
     ensure_dirs_exist()
 
     client = build_client()
-    last_sync = load_last_sync_time()
-    print(f"📅 上次同步时间: {last_sync}")
-    print(f"📭 当前目标邮箱: {client.email}")
 
-    print("\n🔍 正在查找新邮件...")
+    # 根据 sync_days 参数计算同步起始时间
+    if sync_days is not None:
+        # 使用上次同步时间继续增量同步
+        last_sync = load_last_sync_time()
+        print(f"📅 上次同步时间: {last_sync}")
+        print(f"📭 当前目标邮箱: {client.email}")
+        print("\n🔍 正在查找新邮件（增量模式）...")
+        filter_query = f"receivedDateTime gt {last_sync}"
+    else:
+        # 根据 sync_days 重新计算起始时间
+        start_date = (datetime.now(timezone.utc) - timedelta(days=sync_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        print(f"📅 同步范围: 过去 {sync_days} 天")
+        print(f"📅 起始时间: {start_date}")
+        print(f"📭 当前目标邮箱: {client.email}")
+        print(f"\n🔍 正在查找过去 {sync_days} 天的邮件（全量模式）...")
+        filter_query = f"receivedDateTime ge {start_date}"
+        # 更新 last_sync 为本次起始时间
+        save_sync_time(start_date)
+        last_sync = start_date
 
-    filter_query = f"receivedDateTime gt {last_sync}"
     url = f"{_GRAPH_BASE}/users/{client.email}/mailFolders/inbox/messages"
     params = {
         "$select": "id,subject,receivedDateTime,hasAttachments,body",
@@ -173,9 +195,15 @@ def run_incremental_sync() -> int:
         save_sync_time(synced_times[-1])
 
     if new_emails_count == 0:
-        print("\n✅ 没有发现新邮件，知识库已是最新状态。")
+        if sync_days is None:
+            print("\n✅ 没有发现新邮件，知识库已是最新状态。")
+        else:
+            print(f"\n✅ 同步完成！在过去的 {sync_days} 天中找到 {new_emails_count} 封邮件。")
     else:
-        print(f"\n🎉 成功同步了 {new_emails_count} 封新邮件！")
+        if sync_days is None:
+            print(f"\n🎉 成功同步了 {new_emails_count} 封新邮件！")
+        else:
+            print(f"\n🎉 成功同步了 {new_emails_count} 封邮件（过去 {sync_days} 天）！")
 
     return new_emails_count
 

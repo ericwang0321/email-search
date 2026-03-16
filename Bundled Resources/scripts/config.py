@@ -32,6 +32,7 @@ CHUNK_SEPARATORS = ["\n\n", "\n", "。", "！", "？", " ", ""]
 
 # 同步配置
 DEFAULT_SYNC_START_DATE = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+DEFAULT_SYNC_DAYS = 30  # 默认同步过去30天
 PAGE_SIZE = 50
 
 # 文件限制

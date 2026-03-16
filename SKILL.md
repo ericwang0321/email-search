@@ -84,11 +84,66 @@ cd /path/to/email-search
 .venv/bin/python "Bundled Resources/scripts/email_knowledge_tool.py" "宁德时代 业绩" 5
 ```
 
+### 方式三：控制同步时间范围（新增功能）
+```bash
+# 同步过去7天的邮件
+.venv/bin/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3 7
+
+# 同步过去30天的邮件（默认）
+.venv/bin/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3 30
+
+# 同步过去3个月的邮件
+.venv/bin/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3 90
+
+# 同步过去1年的邮件
+.venv/bin/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3 365
+
+# 增量同步模式（只拉取新邮件）
+.venv/bin/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3
+```
+
 **参数说明：**
 - 第一个参数: 搜索关键词（必需）
 - 第二个参数: 返回结果数量 top_k（可选，默认 3）
+- 第三个参数（可选）: 同步时间范围（天数）
+  - `7`: 同步过去7天
+  - `30`: 同步过去30天（默认）
+  - `90`: 同步过去3个月
+  - `365`: 同步过去1年
+  - `0`: 全量同步（重新开始，会删除所有已有数据，不推荐）
+  - `None` 或省略: 增量同步模式（默认，只拉取新邮件）
 
 ---
+
+## 新功能说明
+
+### 📅 时间范围控制
+
+为了避免同步多年的历史邮件，你可以指定 `sync_days` 参数来控制同步范围：
+
+| sync_days | 效果 | 说明 |
+|-----------|------|------|
+| `None` 或省略 | 增量同步 | 只拉取新邮件（高效，推荐） |
+| `7` | 过去7天 | 快速查看近期邮件 |
+| `30` | 过去30天（默认） | 标准月度范围 |
+| `90` | 过去3个月 | 季度或半年度分析 |
+| `365` | 过去1年 | 年度范围分析 |
+| `0` | 全量同步 | 重新开始（会删除已有数据，慎用） |
+
+**示例使用**:
+```bash
+# 只查询最近30天的数据（不重新同步）
+python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索内容" 3 30
+
+# 首次使用：同步过去3个月的数据
+python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索内容" 3 90
+```
+
+**注意事项**:
+- ✅ 增量模式（sync_days=None）不会删除已有数据，只会追加新邮件
+- ⚠️ 全量同步（sync_days=0）会清空知识库，首次初始化时使用
+- 🔄 使用 sync_days=7/30/90 可以控制同步的历史范围，避免处理过多旧邮件
+
 
 ## 函数接口
 - **函数:** `search_email_knowledge_base(query, top_k)`
