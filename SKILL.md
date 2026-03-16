@@ -72,5 +72,24 @@
 ---
 
 ## 执行入口
+
+### 方式一：直接调用（推荐）
+```bash
+cd /path/to/email-search
+.venv/bin/python "Bundled Resources/scripts/email_knowledge_tool.py" "搜索关键词" 3
+```
+
+### 方式二：命令行参数
+```bash
+.venv/bin/python "Bundled Resources/scripts/email_knowledge_tool.py" "宁德时代 业绩" 5
+```
+
+**参数说明：**
+- 第一个参数: 搜索关键词（必需）
+- 第二个参数: 返回结果数量 top_k（可选，默认 3）
+
+---
+
+## 函数接口
 - **函数:** `search_email_knowledge_base(query, top_k)`
 - **位置:** `Bundled Resources/scripts/email_knowledge_tool.py`

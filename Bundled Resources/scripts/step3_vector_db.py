@@ -1,5 +1,6 @@
 import json
 import os
+import hashlib
 import chromadb
 from typing import List, Dict, Any
 
@@ -45,7 +46,10 @@ def prepare_batch_data(chunks: List[Dict[str, Any]]) -> tuple:
             "source_file": chunk.get("source_file", "Unknown"),
         })
         # 确保唯一性，防止覆盖其他数据
-        chunk_id = f"{chunk.get('source_email_date', 'unknown')}_{chunk.get('source_file', 'unknown')}_{chunk.get('chunk_index', 0)}"
+        # 加入邮件主题 hash 确保同一天多封邮件的同名附件不会产生重复 ID
+        subject = chunk.get('source_email_subject', 'unknown')
+        subject_hash = hashlib.md5(subject.encode()).hexdigest()[:8]
+        chunk_id = f"{chunk.get('source_email_date', 'unknown')}_{subject_hash}_{chunk.get('source_file', 'unknown')}_{chunk.get('chunk_index', 0)}"
         ids.append(chunk_id)
 
     return documents, metadatas, ids

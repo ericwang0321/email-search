@@ -1,3 +1,17 @@
+#!/usr/bin/env python3
+"""
+邮件知识库搜索工具
+使用方法: .venv/bin/python email_knowledge_tool.py "搜索关键词" [top_k]
+"""
+import sys
+import os
+from pathlib import Path
+
+# 确保脚本目录在 Python 路径中
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
 import json
 import io
 import contextlib
@@ -80,13 +94,20 @@ def search_email_knowledge_base(query: str, top_k: int = 3) -> str:
 # 下方为测试代码，可直接运行此文件测试整个前后台链路是否通畅
 # =====================================================================
 if __name__ == "__main__":
-    print("🚀 模拟大模型发起查询 (将自动触发底层增量更新)...")
+    # 支持命令行参数
+    if len(sys.argv) >= 2:
+        query = sys.argv[1]
+        top_k = int(sys.argv[2]) if len(sys.argv) >= 3 else 3
+    else:
+        query = "宁德时代业绩超预期"  # 默认测试查询
+        top_k = 3
 
-    test_query = "宁德时代业绩超预期"
-    print(f"🔍 搜索关键词: {test_query}")
-    print("⏳ 正在执行即时同步与检索 (如果刚好有超大新邮件，此处可能需要等待几十秒)...")
+    print(f"🚀 模拟大模型发起查询...")
+    print(f"🔍 搜索关键词: {query}")
+    print(f"📊 返回数量: {top_k}")
+    print("⏳ 正在执行即时同步与检索...")
 
-    tool_output = search_email_knowledge_base(query=test_query, top_k=2)
+    tool_output = search_email_knowledge_base(query=query, top_k=top_k)
 
     print("\n✅ Tool 返回的最终 JSON 数据:")
     print(tool_output)
