@@ -4,6 +4,23 @@ import os
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
+# 尝试导入 datetime，如果失败则提供清晰的错误提示
+try:
+    from datetime import datetime, timezone, timedelta
+except ImportError as e:
+    print(f"❌ 无法导入 datetime 模块: {e}")
+    print("⚠️  请确保已安装 Python 标准库: pip install datetime")
+    # 设置一个默认值防止后续错误
+    from datetime import datetime as dt
+    from datetime import timezone
+    from datetime import timedelta
+    DEFAULT_SYNC_START_DATE = (dt.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    DEFAULT_SYNC_DAYS = 30
+    print("⚠️ 使用默认值")
+else:
+    from datetime import datetime, timezone, timedelta
+    from datetime import timezone
+
 from graph_client import build_client, _get, _GRAPH_BASE
 from config import (
     SYNC_STATE_FILE,
