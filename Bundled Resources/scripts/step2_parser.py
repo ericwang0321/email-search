@@ -2,6 +2,7 @@ import json
 import os
 import pandas as pd
 import pymupdf
+import pypdf2  # 添加 pypdf2 作为备用 PDF 解析器
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from typing import Optional
 
@@ -25,30 +26,43 @@ text_splitter = RecursiveCharacterTextSplitter(
 
 def parse_pdf(file_path: str) -> Optional[str]:
     """
-    解析 PDF 文件
+    解析 PDF 文件（增强版，使用多解析器备选）
     返回: 文本内容，失败时返回 None
     """
     text = ""
+
+    # 尝试使用 pypdf2 作为首选（更健壮）
     try:
-        doc = pymupdf.open(file_path)
-        for page in doc:
-            page_text = page.get_text()
-            if page_text.strip():  # 只添加非空页面
-                text += page_text + "\n"
-        doc.close()
+        import pypdf2
+        doc = pypdf2.PdfReader(file_path)
+        for page in doc.pages:
+            try:
+                page_text = page.extract_text()
+                if page_text.strip():  # 只添加非空页面
+                    text += page_text + "\n"
+            except Exception as e:
+                print(f"     ⚠️ 页面提取失败: {e}")
+                continue
+        return text if text.strip() else None
 
-        if not text.strip():
-            print(f"     ⚠️ PDF 内容为空: {os.path.basename(file_path)}")
+    except Exception as e1:
+        # pypdf2 失败，尝试使用 pymupdf 作为备选
+        print(f"     🔄 pypdf2 失败，尝试 pymupdf: {e1}")
+        try:
+            doc = pymupdf.open(file_path)
+            for page in doc:
+                page_text = page.get_text()
+                if page_text.strip():
+                    text += page_text + "\n"
+            doc.close()
+            return text if text.strip() else None
+
+        except pymupdf.PdfError as e2:
+            print(f"     ⚠️ PDF 解析失败 {os.path.basename(file_path)}: {e2}")
             return None
-
-    except pymupdf.PdfError as e:
-        print(f"     ⚠️ PDF 解析失败 {os.path.basename(file_path)}: {e}")
-        return None
-    except Exception as e:
-        print(f"     ⚠️ 读取 PDF 异常 {os.path.basename(file_path)}: {e}")
-        return None
-
-    return text
+        except Exception as e2:
+            print(f"     ⚠️ PDF 读取异常 {os.path.basename(file_path)}: {e2}")
+            return None
 
 
 def parse_excel(file_path: str) -> Optional[str]:
