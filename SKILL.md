@@ -1,3 +1,8 @@
+---
+name: email-search
+description: 邮件与研究知识库搜索。基于邮件同步和向量检索的智能搜索工具。当用户询问投研信息（公司/行业/股票研报、业绩、公告）、搜索邮件内容、查找历史资料/附件、或需要检索知识库时触发。支持增量同步和自定义时间范围同步。
+---
+
 # Email & Research Knowledge Base - Active-Sync Search
 
 ## Trigger Conditions (触发条件) - 必须调用此 Skill
